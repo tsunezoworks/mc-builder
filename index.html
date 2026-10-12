@@ -473,6 +473,7 @@ function addWorkholding(p0, cfg, xs0, span0, ctx) {
       rot('C', c, new THREE.Vector3(0,1,0));
     }
     label('C', COLORS.C, a, xs[xs.length-1] + 0.2, 0.0, 0.2, 0.24);
+    rot('A', a, new THREE.Vector3(1,0,0));       // trunnion cradle tilt (was missing → A never moved)
   } else if (kind === 'HAP') {
     // face = (n-1)×pitch + X stroke wide, Y stroke high → each spindle gets an X×Y working area (true metres ÷ WS)
     const pw = span + STROKE.X / WS, ph = STROKE.Y / WS, pt = 0.12, pz = 0.12;
@@ -1115,7 +1116,7 @@ rebuild(true);
 document.querySelector('.seg[data-key="type"]').addEventListener('click', () => buildTriad(state.type));
 requestAnimationFrame(render);
 if (q.get('focus') === 'tool') focusTool();
-window.__mc = { state, rebuild, fitCamera, focusTool, camera, controls, get model() { return model; }, get rotaries() { return rotaries; }, ready:true };
+window.__mc = { state, rebuild, fitCamera, focusTool, camera, controls, get model() { return model; }, get rotaries() { return rotaries; }, get movers() { return movers; }, ready:true };
 </script>
 <script>
   window.addEventListener('error', e => { const el = document.getElementById('err'); if (el) el.textContent += (e.message || e) + '\n'; });
