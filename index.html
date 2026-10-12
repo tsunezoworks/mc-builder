@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マシニングセンタ ビルダー（試作）</title>
+<style>
+  :root { --panel: 350px; --bg:#1b1f24; --panel-bg:#23282f; --line:#363e48; --accent:#3b82f6; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:#e8eaed; overflow:hidden;
+    font-family: "Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif; }
+  #app { display:flex; height:100%; }
+  #panel { width:var(--panel); flex:none; overflow-y:auto; background:var(--panel-bg); border-right:1px solid var(--line); padding:14px 14px 28px; }
+  #view { position:relative; flex:1; min-width:0; min-height:0; }
+  #view canvas { display:block; width:100%; height:100%; }
+  h1 { font-size:16px; margin:0 0 2px; letter-spacing:.03em; }
+  .sub { font-size:11px; color:#9aa4ae; margin-bottom:12px; }
+  fieldset { border:1px solid var(--line); border-radius:8px; margin:0 0 12px; padding:8px 10px 10px; }
+  legend { font-size:12px; color:#a8c7fa; padding:0 4px; font-weight:600; }
+  .seg { display:flex; gap:4px; }
+  .seg button, .btn { flex:1; background:#2f363f; color:#dfe3e8; border:1px solid #444d58; border-radius:6px; padding:7px 4px; font-size:13px; cursor:pointer; font-family:inherit; }
+  .seg button:hover, .btn:hover { background:#38414b; }
+  .strk { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .strk label { display:flex; align-items:center; gap:4px; }
+  .strk input, input.num { width:100%; min-width:0; background:#1d2228; color:#e8eaed; border:1px solid #444d58; border-radius:6px; padding:5px 6px; font-size:13px; font-family:inherit; font-variant-numeric:tabular-nums; }
+  .seg.grid5 { display:grid; grid-template-columns:repeat(5, 1fr); }
+  .seg button.on { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  label.lbl { display:block; font-size:11px; color:#9aa4ae; margin:8px 0 3px; }
+  select { width:100%; background:#1d2228; color:#e8eaed; border:1px solid #444d58; border-radius:6px; padding:5px 6px; font-size:12px; font-family:inherit; }
+  .hint { font-size:11px; color:#9aa4ae; margin-top:6px; line-height:1.5; }
+  .warn { color:#ffcc80; }
+  .axrow { display:grid; grid-template-columns: 26px 1fr 92px; gap:6px; align-items:center; margin-bottom:4px; }
+  .axhead { display:grid; grid-template-columns: 26px 1fr 92px; gap:6px; font-size:10px; color:#8a949e; margin:6px 0 2px; }
+  .chip { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:20px; padding:0 5px; border-radius:4px; font-size:12px; font-weight:700; color:#fff; }
+  .stackview { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .stackcol { background:#1d2228; border:1px solid #3a424c; border-radius:6px; padding:6px; }
+  .stackcol h4 { margin:0 0 4px; font-size:11px; color:#a8c7fa; font-weight:600; text-align:center; }
+  .stk { display:flex; flex-direction:column-reverse; gap:3px; }
+  .stk div { font-size:11px; text-align:center; border-radius:4px; padding:3px 2px; background:#39414b; }
+  .stk .fixed { background:#525b66; }
+  .stk .end { background:#6d5a2b; }
+  .sl { display:grid; grid-template-columns: 26px 1fr 64px; gap:6px; align-items:center; margin:5px 0; font-size:12px; }
+  .sl input { width:100%; }
+  .sl .val { text-align:right; font-variant-numeric: tabular-nums; color:#cfd6dd; font-size:11px; }
+  .toggle { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:4px; }
+  .row2 { display:flex; gap:6px; margin-top:8px; }
+  #summary { position:absolute; top:10px; left:10px; right:10px; pointer-events:none; }
+  #summary .card { display:inline-block; max-width:100%; background:rgba(20,24,29,.82); border:1px solid #3a424c; border-radius:8px; padding:8px 12px; }
+  #summary .main { font-size:15px; font-weight:700; }
+  #summary .detail { font-size:11px; color:#aeb7c0; margin-top:3px; }
+  #legend { position:absolute; right:10px; bottom:10px; background:rgba(20,24,29,.82); border:1px solid #3a424c; border-radius:8px; padding:7px 10px; font-size:11px; pointer-events:none; }
+  #legend .it { display:flex; align-items:center; gap:6px; margin:2px 0; }
+  #legend .sw { width:14px; height:10px; border-radius:2px; display:inline-block; }
+  #triadLabel { position:absolute; left:10px; bottom:10px; width:130px; height:130px; border:1px solid #3a424c; border-radius:8px; pointer-events:none; }
+  #triadLabel span { position:absolute; top:4px; left:8px; font-size:10px; color:#9aa4ae; }
+  #err { position:absolute; inset:auto 10px 150px 10px; color:#ff8a80; font-size:12px; white-space:pre-wrap; pointer-events:none; }
+  @media (max-width: 820px) {
+    #app { flex-direction:column-reverse; }
+    #panel { width:100%; height:46vh; border-right:none; border-top:1px solid var(--line); }
+    #summary .main { font-size:13px; }
+    #legend { display:none; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="panel">
+    <h1>マシニングセンタ ビルダー</h1>
+    <div class="sub">構成を選ぶと3Dモデルが即時に更新されます（簡易形状の試作）</div>
+
+    <fieldset>
+      <legend>1. 形式</legend>
+      <div class="seg" data-key="type">
+        <button data-v="V">立形</button><button data-v="H">横形</button>
+      </div>
+      <div class="hint" id="typeHint"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>2. 軸数</legend>
+      <div class="seg" data-key="axes">
+        <button data-v="3">3軸</button><button data-v="4">4軸</button><button data-v="5">5軸</button>
+      </div>
+      <div class="hint" id="rotHint"></div>
+      <div id="rotCfg" style="display:none">
+        <label class="lbl">5軸の回転軸配置</label>
+        <select id="rotSel">
+          <option value="table">テーブル2軸（トラニオン等）</option>
+          <option value="head">主軸頭2軸（ヘッド形）</option>
+          <option value="mixed">混合（テーブル1軸＋主軸頭1軸）</option>
+        </select>
+        <div id="headRow"><label class="lbl">主軸頭の形式</label><select id="headSel"></select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>3. 主軸数</legend>
+      <div class="seg grid5" data-key="sp">
+        <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
+        <button data-v="6">6</button><button data-v="7">7</button><button data-v="8">8</button><button data-v="9">9</button><button data-v="10">10</button>
+      </div>
+      <div class="hint">主軸はX方向に並列配置。治具・ワークも同数配置します。</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>4. ストローク (mm)</legend>
+      <div class="strk">
+        <label><span class="chip" style="background:#e53935">X</span><input type="number" id="stX" min="100" max="5000" step="50"></label>
+        <label><span class="chip" style="background:#43a047">Y</span><input type="number" id="stY" min="100" max="5000" step="50"></label>
+        <label><span class="chip" style="background:#1e88e5">Z</span><input type="number" id="stZ" min="100" max="5000" step="50"></label>
+      </div>
+      <label class="lbl">主軸間ピッチ (mm)</label>
+      <input type="number" id="pitch" min="150" max="3000" step="10" class="num">
+      <div class="hint" id="strokeHint"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>5. 軸の重なり方</legend>
+      <label class="lbl">プリセット</label>
+      <select id="preset"></select>
+      <div class="axhead"><span>軸</span><span>搭載側</span><span>ベッドから順番</span></div>
+      <div id="axrows"></div>
+      <label class="lbl">構造（コラム／門形）</label>
+      <select id="frame">
+        <option value="C">C形コラム（片持ち）</option>
+        <option value="G">門形（ダブルコラム／ガントリー）</option>
+      </select>
+      <label class="lbl">コラムの位置（工具側の積み上げ内）</label>
+      <select id="colBelow"></select>
+      <div class="stackview">
+        <div class="stackcol"><h4>ワーク側（下→上）</h4><div class="stk" id="stkWork"></div></div>
+        <div class="stackcol"><h4>工具側（下→上）</h4><div class="stk" id="stkTool"></div></div>
+      </div>
+      <div class="hint" id="notes"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>6. 軸操作</legend>
+      <label class="toggle"><input type="checkbox" id="anim"> アニメーション（各軸を往復ジョグ）</label>
+      <div id="sliders"></div>
+      <div class="hint">値は工具のワークに対する相対位置（NC座標の考え方）。ワーク側の軸は逆方向に動きます。</div>
+      <div class="row2"><button class="btn" id="zero">全軸 原点へ</button><button class="btn" id="resetView">視点リセット</button></div>
+    </fieldset>
+  </div>
+  <div id="view">
+    <div id="summary"><div class="card"><div class="main" id="sumMain"></div><div class="detail" id="sumDetail"></div></div></div>
+    <div id="triadLabel"><span>座標系</span></div>
+    <div id="legend">
+      <div class="it"><span class="sw" style="background:#e53935"></span>X軸 レール／キャリッジ</div>
+      <div class="it"><span class="sw" style="background:#43a047"></span>Y軸 レール／キャリッジ</div>
+      <div class="it"><span class="sw" style="background:#1e88e5"></span>Z軸 レール／キャリッジ</div>
+      <div class="it"><span class="sw" style="background:#fb8c00"></span>A軸（X軸まわり回転）</div>
+      <div class="it"><span class="sw" style="background:#8e24aa"></span>B軸（Y軸まわり回転）</div>
+      <div class="it"><span class="sw" style="background:#00acc1"></span>C軸（Z軸まわり回転）</div>
+      <div class="it"><span class="sw" style="background:#cfd4da"></span>固定構造（ベッド・コラム）</div>
+    </div>
+    <div id="err"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------------------------------------------------------------- constants
+const BED_TOP = 0.55, RH = 0.045, RW = 0.06, CH = 0.14;
+const COLORS = { X:0xe53935, Y:0x43a047, Z:0x1e88e5, A:0xfb8c00, B:0x8e24aa, C:0x00acc1 };
+// strokes in metres (UI is mm). Sliders run over ±stroke/2 around mid-stroke.
+const STROKE = { X:0.6, Y:0.5, Z:0.5 };
+const LIN_RANGE = { X:[-0.3, 0.3], Y:[-0.25, 0.25], Z:[-0.25, 0.25] };
+const STROKE_MIN = 100, STROKE_MAX = 5000;
+function applyStrokes() { for (const a of ['X','Y','Z']) { STROKE[a] = state.stroke[a] / 1000; LIN_RANGE[a] = [-STROKE[a]/2, STROKE[a]/2]; } }
+const ROT_DEF = {
+  V3: [], V4: [{ax:'A', range:[-180,180], desc:'A軸 回転ユニット'}],
+  V5: [{ax:'A', range:[-90,90], desc:'A軸 傾斜'}, {ax:'C', range:[-180,180], desc:'C軸 回転'}],
+  H3: [], H4: [{ax:'B', range:[-180,180], desc:'B軸 割出し'}],
+  H5: [{ax:'B', range:[-180,180], desc:'B軸 回転'}, {ax:'A', range:[-90,90], desc:'A軸 傾斜'}],
+};
+const ROT_HINT = {
+  V3:'直交3軸（X・Y・Z）', V4:'4軸: テーブル上にA軸回転ユニット（主軸台＋心押台、共通シャフトに多連ワーク）',
+  V5:'5軸: トラニオンテーブル（A軸傾斜クレードル＋C軸回転テーブル）',
+  H3:'直交3軸（X・Y・Z）', H4:'4軸: B軸回転（割出し）テーブル',
+  H5:'5軸: B軸回転テーブル上にA軸傾斜トラニオン',
+};
+const SP_NAME = n => `主軸${n}本`;
+// 5-axis rotary placement: 'table' | 'head' | 'mixed'. Head = [outer housing axis, inner tilting-fork axis].
+const HEAD_OPTS = {
+  V: [{ v:'BC', name:'フォーク形 B+C（C旋回ハウジング＋B傾斜）' }, { v:'AC', name:'フォーク形 A+C（C旋回ハウジング＋A傾斜）' }],
+  H: [{ v:'AB', name:'B旋回（Y軸まわり）＋A傾斜' }, { v:'BC', name:'C旋回（主軸軸線まわり）＋B傾斜' }],
+};
+const ROT_TO_LIN = { A:'X', B:'Y', C:'Z' };
+function headAxes(c) {
+  if (c.axes !== 5 || c.rot === 'table') return [];
+  if (c.rot === 'mixed') return c.type === 'V' ? [null, 'B'] : [null, 'A'];
+  if (c.type === 'V') return c.head === 'AC' ? ['C','A'] : ['C','B'];
+  return c.head === 'BC' ? ['C','B'] : ['B','A'];
+}
+function rotDefs(c) {
+  if (c.axes < 5 || c.rot === 'table') return ROT_DEF[c.type + c.axes].map(r => ({ ...r, side:'work' }));
+  const [o, i] = headAxes(c), out = [];
+  if (c.rot === 'mixed') out.push(c.type === 'V' ? { ax:'C', range:[-180,180], desc:'テーブルC 回転', side:'work' } : { ax:'B', range:[-180,180], desc:'テーブルB 回転', side:'work' });
+  else out.push({ ax:o, range: c.type === 'H' && o === 'B' ? [-90,90] : [-180,180], desc:'主軸頭 旋回', side:'tool' });
+  out.push({ ax:i, range:[-90,90], desc:'主軸頭 傾斜', side:'tool' });
+  return out;
+}
+function rotHint(c) {
+  if (c.axes < 5 || c.rot === 'table') return ROT_HINT[c.type + c.axes];
+  if (c.rot === 'mixed') return c.type === 'V' ? '5軸（混合）: テーブルC回転＋主軸頭B傾斜' : '5軸（混合）: テーブルB回転＋主軸頭A傾斜';
+  const [o, i] = headAxes(c);
+  return `5軸（主軸頭2軸）: ${o}軸旋回ハウジング＋${i}軸傾斜フォーク（主軸ごとに独立ユニット、同一指令で同期）${c.type === 'H' ? '、ワークは垂直パレット（イケール型）' : ''}`;
+}
+// which work-holding to put on the table
+function workKind(c) {
+  if (c.axes < 5) return c.type + c.axes;
+  if (c.rot === 'table') return c.type + '5';
+  if (c.rot === 'head') return c.type === 'V' ? 'V3' : 'HAP';   // 横形: vertical angle-plate pallet
+  return c.type === 'V' ? 'VC' : 'H4';
+}
+
+// Each preset is pure data: work = axes from bed upward on work side,
+// tool = axes from bed upward on tool side with 'COL' marking the column/portal.
+const PRESETS = {
+  V: [
+    { name:'テーブルXY・主軸頭Z（C形コラム固定）', work:['Y','X'], tool:['COL','Z'], frame:'C' },
+    { name:'テーブルY・コラム移動X・主軸頭Z', work:['Y'], tool:['X','COL','Z'], frame:'C' },
+    { name:'テーブルY・コラム上サドルX・主軸頭Z', work:['Y'], tool:['COL','X','Z'], frame:'C' },
+    { name:'テーブルX・コラム移動Y・主軸頭Z', work:['X'], tool:['Y','COL','Z'], frame:'C' },
+    { name:'テーブル固定・コラム移動XY・主軸頭Z（トラベリングコラム）', work:[], tool:['Y','X','COL','Z'], frame:'C' },
+    { name:'ニー形: サドルY・テーブルX・ニーZ、主軸固定', work:['Z','Y','X'], tool:['COL'], frame:'C' },
+    { name:'門形: テーブルY移動・クロスレール上X・主軸頭Z', work:['Y'], tool:['COL','X','Z'], frame:'G' },
+    { name:'門形: ガントリー移動Y・X・主軸Z、テーブル固定', work:[], tool:['Y','COL','X','Z'], frame:'G' },
+  ],
+  H: [
+    { name:'テーブルZ・コラム移動X・主軸頭Y', work:['Z'], tool:['X','COL','Y'], frame:'C' },
+    { name:'テーブルX・Z、コラム固定・主軸頭Y', work:['Z','X'], tool:['COL','Y'], frame:'C' },
+    { name:'コラム移動XZ・主軸頭Y、テーブル固定（T字ベッド）', work:[], tool:['Z','X','COL','Y'], frame:'C' },
+    { name:'テーブルX・コラム移動Z・主軸頭Y（T字ベッド）', work:['X'], tool:['Z','COL','Y'], frame:'C' },
+    { name:'テーブルZ・コラム固定・サドルX・主軸頭Y', work:['Z'], tool:['COL','X','Y'], frame:'C' },
+  ],
+};
+
+// ---------------------------------------------------------------- state
+const state = {
+  type:'V', axes:3, sp:1, presetIdx:0, rot:'table', head:'BC',
+  custom:{ side:{X:'work',Y:'work',Z:'tool'}, order:{X:2,Y:1,Z:1}, colBelow:0, frame:'C' },
+  values:{X:0,Y:0,Z:0,A:0,B:0,C:0}, animate:false,
+  stroke:{ X:600, Y:500, Z:500 }, pitch:400,
+};
+
+// machine axis -> world direction (Three.js is Y-up; operator stands at +Z world)
+function dirOf(type, ax) {
+  if (type === 'V') return { X:new THREE.Vector3(1,0,0), Y:new THREE.Vector3(0,0,-1), Z:new THREE.Vector3(0,1,0) }[ax];
+  return { X:new THREE.Vector3(1,0,0), Y:new THREE.Vector3(0,1,0), Z:new THREE.Vector3(0,0,-1) }[ax];
+}
+const isVert = d => Math.abs(d.y) > 0.5;
+const isAlongX = d => Math.abs(d.x) > 0.5;
+
+function presetToCustom(p) {
+  const side = {}, order = {};
+  p.work.forEach((a,i) => { side[a]='work'; order[a]=i+1; });
+  p.tool.filter(a=>a!=='COL').forEach((a,i) => { side[a]='tool'; order[a]=i+1; });
+  for (const a of ['X','Y','Z']) if (!side[a]) { side[a]='tool'; order[a]=3; }
+  return { side, order, colBelow:p.tool.indexOf('COL'), frame:p.frame };
+}
+
+function deriveStack(type, c) {
+  const axes = ['X','Y','Z'], notes = [];
+  const vAx = type === 'V' ? 'Z' : 'Y';
+  const sorted = s => axes.filter(a => c.side[a]===s).sort((a,b) => (c.order[a]-c.order[b]) || (axes.indexOf(a)-axes.indexOf(b)));
+  const work = sorted('work'), toolAxes = sorted('tool');
+  const k = Math.min(c.colBelow, toolAxes.length);
+  const before = toolAxes.slice(0,k), after = toolAxes.slice(k);
+  const vi = before.indexOf(vAx);
+  if (vi >= 0) { before.splice(vi,1); after.unshift(vAx); notes.push(`上下軸（${vAx}）はコラムの下に置けないため、コラム前面に配置しました。`); }
+  let frame = c.frame;
+  if (type === 'H' && frame === 'G') { frame = 'C'; notes.push('横形では門形は未対応のためC形コラムで表示します。'); }
+  if (frame === 'G' && before.some(a => a==='X')) notes.push('門形でX軸をベッド上に置く構成は形状が簡略化されます。');
+  return { work, tool:[...before,'COL',...after], before, after, frame, notes };
+}
+
+// ---------------------------------------------------------------- materials & primitives
+const matCache = new Map();
+function M(color, rough=0.55, metal=0.15) {
+  const key = `${color}|${rough}|${metal}`;
+  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness:rough, metalness:metal }));
+  return matCache.get(key);
+}
+const MAT = {
+  bed: M(0x59626d, .8, .1), column: M(0xd5d9de, .5, .1), struct: M(0xc2c8ce, .55, .15),
+  head: M(0xe6e8eb, .45, .1), spindle: M(0x9aa3ad, .28, .85), tool: M(0xd4a017, .3, .75),
+  work: M(0xcfd8dc, .3, .7), fixture: M(0x455a64, .6, .3), dark: M(0x30363d, .6, .3),
+};
+const tint = ax => M(new THREE.Color(COLORS[ax]).lerp(new THREE.Color(0xffffff), 0.55).getHex(), .5, .1);
+const railMat = ax => M(COLORS[ax], .35, .5);
+
+function box(w,h,d,mat,x,y,z,parent) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+function cyl(r,h,mat,axis,x,y,z,parent,seg=32) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg), mat);
+  if (axis==='x') m.rotation.z = Math.PI/2; else if (axis==='z') m.rotation.x = Math.PI/2;
+  m.position.set(x,y,z); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+function cylAlong(r,h,mat,axisVec,x,y,z,parent,seg=32) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg), mat);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), axisVec.clone().normalize());
+  m.position.set(x,y,z); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+const labelCache = new Map();
+function labelMat(text, color) {
+  const key = text + color;
+  if (!labelCache.has(key)) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.font = 'bold 84px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 12; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(text, 64, 68);
+    g.fillStyle = '#' + new THREE.Color(color).getHexString(); g.fillText(text, 64, 68);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    labelCache.set(key, new THREE.SpriteMaterial({ map:t, depthTest:false, transparent:true }));
+  }
+  return labelCache.get(key);
+}
+const textCache = new Map();
+function textSprite(text, css) {
+  const key = text + css;
+  if (!textCache.has(key)) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const g = c.getContext('2d');
+    g.font = 'bold 76px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 12; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(text, 128, 68);
+    g.fillStyle = css; g.fillText(text, 128, 68);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    textCache.set(key, new THREE.SpriteMaterial({ map:t, depthTest:false, transparent:true }));
+  }
+  const sp = new THREE.Sprite(textCache.get(key)); sp.renderOrder = 11; sp.userData.isLabel = true; return sp;
+}
+function label(text, color, parent, x, y, z, s=0.17) {
+  const sp = new THREE.Sprite(labelMat(text, color)); sp.scale.set(s,s,s); sp.position.set(x,y,z);
+  sp.renderOrder = 10; sp.userData.isLabel = true; parent.add(sp); return sp;
+}
+
+// ---------------------------------------------------------------- generic stacking elements
+// Scale: 1 scene unit = 1 m = 1000 mm. Tool = φ50 mm (r 0.025) × L120 mm exactly.
+// Convention: every stacking group's origin = centre of its TOP surface.
+const TOOL_R = 0.025, TOOL_L = 0.12;
+const WS = 0.7;           // uniform scale of the work-holding group (work pieces ≈ 125–200 mm)
+const HS = 0.8;           // uniform scale of rotary head units (tool size compensated → still φ50)
+const blockHalf = along => Math.min(along * 0.3, 0.12);                      // guide-block offset from carriage centre
+const railLenFor = (ax, along) => STROKE[ax] + 2 * blockHalf(along) + 0.12 + 0.04; // stroke + block span + margin
+const railVFor = (ax, hC) => STROKE[ax] + hC * 0.6 + 0.1;                   // vertical rails on a face
+
+// work-holding envelope beyond the spindle span (x) and depth (z), metres
+const HOLD = { V3:[0.35,0.4], V4:[0.8,0.4], VC:[0.4,0.4], V5:[0.82,0.4], HAP:[0.5,0.45], H3:[0.35,0.4], H4:[0.45,0.45], H5:[0.5,0.45] };
+const KIND_MIN_PITCH = { V3:0.26, V4:0.24, VC:0.3, V5:0.26, HAP:0.26, H3:0.29, H4:0.4, H5:0.44 };
+function minPitch(c) {
+  let m = Math.max(0.22, KIND_MIN_PITCH[workKind(c)]);
+  if (headAxes(c)[1]) m = Math.max(m, 0.4);
+  return m;
+}
+
+function addSlide(parent, ax, d, fp, sign, ctx, opts={}) {
+  const ax_ = isAlongX(d);
+  const along = ax_ ? fp.x : fp.z, across = ax_ ? fp.z : fp.x;
+  const railLen = opts.railLen ?? railLenFor(ax, opts.feet ? 0.42 : along);
+  const offs = opts.railOffsets || [-across*0.33, across*0.33];
+  for (const o of offs) {
+    if (ax_) box(railLen, RH, RW, railMat(ax), 0, RH/2, o, parent);
+    else box(RW, RH, railLen, railMat(ax), o, RH/2, 0, parent);
+  }
+  const g = new THREE.Group(); g.position.set(0, RH, 0); parent.add(g);
+  const h = opts.height ?? CH;
+  if (opts.feet) {
+    for (const fx of opts.feet) box(0.42, h, fp.z, tint(ax), fx, h/2, 0, g);
+    label(ax, COLORS[ax], g, opts.feet[1] + 0.3, h/2, fp.z/2);
+  } else {
+    box(fp.x, h, fp.z, tint(ax), 0, h/2, 0, g);
+    label(ax, COLORS[ax], g, fp.x/2 + 0.08, h/2, fp.z/2 + 0.02);
+  }
+  const bh = blockHalf(opts.feet ? 0.42 : along);
+  for (const o of offs) for (const s of [-1,1]) {
+    const p = s * bh;
+    if (ax_) box(0.12, 0.03, RW*1.6, railMat(ax), p, -0.012, o, g);
+    else box(RW*1.6, 0.03, 0.12, railMat(ax), o, -0.012, p, g);
+  }
+  ctx.movers.push({ ax, obj:g, base:g.position.clone(), dir:d.clone(), sign });
+  const top = new THREE.Group(); top.position.y = h; g.add(top); return top;
+}
+
+// vertical axis on the work side (knee): upright + vertical rails + knee carriage, travels the full stroke
+function addKnee(parent, ax, d, w, dep, V, ctx) {
+  const kh = 0.35, S = STROKE[ax], upD = 0.25, s = V ? -1 : 1;
+  const railLen = railVFor(ax, kh), upH = 0.15 + railLen + 0.1;
+  box(w*0.9, upH, upD, MAT.struct, 0, upH/2, s*(dep/2 + RH + upD/2), parent);
+  for (const x of [-w*0.3, w*0.3]) box(RW, railLen, RH, railMat(ax), x, 0.15 + railLen/2, s*(dep/2 + RH/2), parent);
+  const g = new THREE.Group(); g.position.set(0, 0.15 + railLen/2 - kh/2, 0); parent.add(g);   // home = mid stroke
+  box(w, kh, dep, tint(ax), 0, kh/2, 0, g);
+  label(ax, COLORS[ax], g, w/2 + 0.08, kh/2, dep/2);
+  ctx.movers.push({ ax, obj:g, base:g.position.clone(), dir:d.clone(), sign:-1 });
+  const top = new THREE.Group(); top.position.y = kh; g.add(top); return top;
+}
+
+// footprints from the top element downwards so each lower element carries the full rail length of the one above
+function stackFootprints(type, axes, topFp, kneeExtra = 0.3) {
+  const fps = new Array(axes.length);
+  if (!axes.length) return fps;
+  fps[axes.length - 1] = { ...topFp };
+  for (let i = axes.length - 2; i >= 0; i--) {
+    const a = axes[i+1], d = dirOf(type, a), fp = { ...fps[i+1] };
+    if (isVert(d)) fp.z += kneeExtra;
+    else if (isAlongX(d)) fp.x = Math.max(fp.x, railLenFor(a, fps[i+1].x));
+    else fp.z = Math.max(fp.z, railLenFor(a, fps[i+1].z));
+    fps[i] = fp;
+  }
+  return fps;
+}
+
+// fixtures / rotary units / work pieces on top of the work stack (built in a WS-scaled group)
+function addWorkholding(p0, cfg, xs0, span0, ctx) {
+  const p = new THREE.Group(); p.scale.setScalar(WS); p0.add(p);
+  const xs = xs0.map(x => x / WS), span = span0 / WS;
+  const works = [], kind = workKind(cfg);
+  const rot = (ax, obj, axis) => ctx.rotaries.push({ ax, obj, axis });
+  if (kind === 'V3') {
+    for (const x of xs) {
+      box(0.3, 0.08, 0.3, MAT.fixture, x, 0.04, 0, p);
+      works.push(box(0.22, 0.18, 0.22, MAT.work, x, 0.08 + 0.09, 0, p));
+    }
+  } else if (kind === 'V4') {
+    const ha = 0.28, ex = span/2 + 0.42;
+    box(0.24, 0.44, 0.36, MAT.struct, -ex, 0.22, 0, p);
+    box(0.16, 0.38, 0.26, MAT.struct, ex, 0.19, 0, p);
+    const a = new THREE.Group(); a.position.set(0, ha, 0); p.add(a);
+    cyl(0.055, 2*ex, tint('A'), 'x', 0, 0, 0, a);
+    cyl(0.15, 0.05, railMat('A'), 'x', -ex + 0.145, 0, 0, a);
+    label('A', COLORS.A, a, -ex - 0.05, 0.32, 0.12, 0.24);
+    for (const x of xs) {
+      box(0.26, 0.04, 0.26, MAT.fixture, x, 0.075, 0, a);
+      works.push(box(0.22, 0.18, 0.22, MAT.work, x, 0.095 + 0.09, 0, a));
+    }
+    rot('A', a, new THREE.Vector3(1,0,0));
+  } else if (kind === 'VC') {
+    for (const x of xs) {
+      box(0.36, 0.06, 0.36, MAT.fixture, x, 0.03, 0, p);
+      const c = new THREE.Group(); c.position.set(x, 0.06, 0); p.add(c);
+      cyl(0.17, 0.07, railMat('C'), 'y', 0, 0.035, 0, c);
+      box(0.04, 0.01, 0.24, MAT.dark, 0, 0.075, 0, c);
+      works.push(box(0.2, 0.17, 0.2, MAT.work, 0, 0.07 + 0.085, 0, c));
+      rot('C', c, new THREE.Vector3(0,1,0));
+    }
+    label('C', COLORS.C, p, xs[xs.length-1] + 0.26, 0.08, 0.2, 0.24);
+  } else if (kind === 'V5') {
+    const ha = 0.42, sx = span/2 + 0.45;
+    for (const s of [-1,1]) box(0.2, 0.52, 0.42, MAT.struct, s*sx, 0.26, 0, p);
+    const a = new THREE.Group(); a.position.set(0, ha, 0); p.add(a);
+    box(span + 0.6, 0.08, 0.42, tint('A'), 0, -0.22, 0, a);
+    for (const s of [-1,1]) {
+      box(0.08, 0.3, 0.36, tint('A'), s*(span/2 + 0.3), -0.1, 0, a);
+      cyl(0.08, 0.12, railMat('A'), 'x', s*(span/2 + 0.36), 0, 0, a);
+    }
+    label('A', COLORS.A, a, -sx - 0.2, 0.15, 0.2, 0.24);
+    for (const x of xs) {
+      const c = new THREE.Group(); c.position.set(x, -0.18, 0); a.add(c);
+      cyl(0.15, 0.06, railMat('C'), 'y', 0, 0.03, 0, c);
+      box(0.04, 0.01, 0.2, MAT.dark, 0, 0.065, 0, c);
+      works.push(box(0.18, 0.16, 0.18, MAT.work, 0.0, 0.06 + 0.08, 0, c));
+      rot('C', c, new THREE.Vector3(0,1,0));
+    }
+    label('C', COLORS.C, a, xs[xs.length-1] + 0.2, 0.0, 0.2, 0.24);
+  } else if (kind === 'HAP') {
+    // face = (n-1)×pitch + X stroke wide, Y stroke high → each spindle gets an X×Y working area (true metres ÷ WS)
+    const pw = span + STROKE.X / WS, ph = STROKE.Y / WS, pt = 0.12, pz = 0.12;
+    box(pw + 0.1, 0.08, 0.5, MAT.fixture, 0, 0.04, pz, p);
+    box(pw, ph, pt, MAT.struct, 0, 0.08 + ph/2, pz, p);
+    for (const s of [-1,1]) box(0.06, ph*0.6, 0.3, MAT.struct, s*(pw/2 - 0.03), 0.08 + ph*0.3, pz + 0.2, p);
+    const face = pz - pt/2, yc = 0.08 + ph/2;
+    for (const x of xs) {
+      box(0.3, 0.3, 0.04, MAT.fixture, x, yc, face - 0.02, p);
+      works.push(box(0.24, 0.24, 0.18, MAT.work, x, yc, face - 0.04 - 0.09, p));
+    }
+  } else if (kind === 'H3') {
+    for (const x of xs) {
+      box(0.34, 0.1, 0.34, MAT.fixture, x, 0.05, 0, p);
+      works.push(box(0.28, 0.28, 0.28, MAT.work, x, 0.1 + 0.14, 0, p));
+    }
+  } else if (kind === 'H4') {
+    for (const x of xs) {
+      const b = new THREE.Group(); b.position.set(x, 0, 0); p.add(b);
+      cyl(0.25, 0.08, railMat('B'), 'y', 0, 0.04, 0, b);
+      box(0.22, 0.34, 0.12, MAT.fixture, 0, 0.08 + 0.17, 0.08, b);
+      works.push(box(0.26, 0.26, 0.2, MAT.work, 0, 0.08 + 0.17, -0.08, b));
+      rot('B', b, new THREE.Vector3(0,1,0));
+    }
+    label('B', COLORS.B, p, xs[xs.length-1] + 0.33, 0.1, 0.2, 0.24);
+  } else {
+    for (const x of xs) {
+      const b = new THREE.Group(); b.position.set(x, 0, 0); p.add(b);
+      cyl(0.27, 0.07, railMat('B'), 'y', 0, 0.035, 0, b);
+      for (const s of [-1,1]) box(0.07, 0.34, 0.2, MAT.struct, s*0.24, 0.07 + 0.17, 0, b);
+      const a = new THREE.Group(); a.position.set(0, 0.07 + 0.28, 0); b.add(a);
+      box(0.38, 0.05, 0.26, tint('A'), 0, -0.09, 0, a);
+      for (const s of [-1,1]) cyl(0.05, 0.05, railMat('A'), 'x', s*0.19, 0, 0, a);
+      works.push(box(0.2, 0.18, 0.2, MAT.work, 0, -0.065 + 0.09, 0, a));
+      rot('B', b, new THREE.Vector3(0,1,0));
+      rot('A', a, new THREE.Vector3(1,0,0));
+    }
+    label('B', COLORS.B, p, xs[xs.length-1] + 0.35, 0.05, 0.25, 0.24);
+    label('A', COLORS.A, p, xs[xs.length-1] + 0.35, 0.4, 0.1, 0.24);
+  }
+  return works;
+}
+
+// φ50 tool with "φ50" tag (only on spindle 0)
+function addTool(parent, axis, x, y, z, r, len, tagged) {
+  cyl(r, len, MAT.tool, axis, x, y, z, parent, 20);
+  if (tagged) {
+    const s = textSprite('φ50', '#ffd54f');
+    const k = r / TOOL_R;                     // compensate parent scaling so the tag stays readable
+    s.scale.set(0.13 * k, 0.065 * k, 1);
+    s.position.set(x + 0.1 * k, y, z + (axis === 'z' ? 0 : 0.02 * k));
+    parent.add(s);
+  }
+}
+
+// Rotary head unit (HS-scaled), local frame: spindle points along local -Y.
+function addHeadUnit(parent, type, pos, wq, outerAx, innerAx, ctx, withLabels, tagged) {
+  const W = new THREE.Group(); W.position.copy(pos); W.quaternion.copy(wq); W.scale.setScalar(HS); parent.add(W);
+  const inv = wq.clone().invert();
+  const loc = ax => dirOf(type, ROT_TO_LIN[ax]).clone().applyQuaternion(inv).round();
+  const O = new THREE.Group(); W.add(O);
+  if (outerAx) {
+    const oa = loc(outerAx);
+    if (Math.abs(oa.y) > 0.5) {
+      cylAlong(0.14, 0.17, tint(outerAx), oa, 0, -0.085, 0, O);
+      cylAlong(0.145, 0.035, railMat(outerAx), oa, 0, -0.03, 0, O);
+      box(0.05, 0.02, 0.1, MAT.dark, 0.12, -0.12, 0, O);
+    } else {
+      cylAlong(0.11, 0.36, tint(outerAx), oa, 0, -0.1, 0, O);
+      for (const s of [-1,1]) cylAlong(0.115, 0.04, railMat(outerAx), oa, oa.x*s*0.16, -0.1, oa.z*s*0.16, O);
+    }
+    if (withLabels) label(outerAx, COLORS[outerAx], O, 0.22, -0.08, 0.12);
+    ctx.rotaries.push({ ax:outerAx, obj:O, axis:oa });
+  } else {
+    box(0.22, 0.17, 0.22, MAT.struct, 0, -0.085, 0, O);
+  }
+  const ia = loc(innerAx), aX = Math.abs(ia.x) > 0.5;
+  box(aX ? 0.38 : 0.2, 0.05, aX ? 0.2 : 0.38, tint(innerAx), 0, -0.195, 0, O);
+  for (const s of [-1,1]) {
+    const px = aX ? s*0.165 : 0, pz = aX ? 0 : s*0.165;
+    box(aX ? 0.05 : 0.17, 0.24, aX ? 0.17 : 0.05, tint(innerAx), px, -0.33, pz, O);
+    cylAlong(0.055, 0.04, railMat(innerAx), new THREE.Vector3(Math.abs(ia.x), 0, Math.abs(ia.z)), px*1.2, -0.37, pz*1.2, O);
+  }
+  if (withLabels) label(innerAx, COLORS[innerAx], O, aX ? 0.26 : 0.12, -0.37, aX ? 0.1 : 0.26);
+  const I = new THREE.Group(); I.position.set(0, -0.37, 0); O.add(I);
+  cylAlong(0.085, 0.3, MAT.spindle, new THREE.Vector3(0,1,0), 0, -0.05, 0, I);
+  cylAlong(0.05, 0.06, MAT.dark, new THREE.Vector3(0,1,0), 0, -0.23, 0, I);
+  const tr = TOOL_R / HS, tl = TOOL_L / HS;                    // exact φ50 × L120 after scaling
+  addTool(I, 'y', 0, -0.26 - tl/2, 0, tr, tl, tagged);
+  const tip = new THREE.Object3D(); tip.position.set(0, -0.26 - tl, 0); I.add(tip);
+  ctx.rotaries.push({ ax:innerAx, obj:I, axis:ia });
+  return tip;
+}
+
+// ---------------------------------------------------------------- model builder
+function build(cfg, colH, shift, riser = 0) {
+  const V = cfg.type === 'V', n = cfg.sp, st = cfg.stack;
+  const root = new THREE.Group();
+  const ctx = { movers:[], rotaries:[] };
+  const kind = workKind(cfg);
+  const pitch = Math.max(cfg.pitch, minPitch(cfg));
+  const span = (n-1) * pitch;
+  const xs = Array.from({length:n}, (_,i) => (i - (n-1)/2) * pitch);
+  const depthAx = V ? 'Y' : 'Z';
+  const xWork = st.work.includes('X'), dWork = st.work.includes(depthAx);
+  const [hw, hdp] = HOLD[kind];
+  const tableX = span + Math.max(kind === 'HAP' ? STROKE.X + 0.1 : hw, xWork ? STROKE.X + 0.3 : 0);           // X stroke is per-spindle travel
+  const tableZ = Math.max(hdp, dWork ? 0.8 * STROKE[depthAx] + 0.1 : 0);
+
+  // ---- work side
+  const workRoot = new THREE.Group(); workRoot.position.set(0, BED_TOP, V ? 0.25 : 0.55); root.add(workRoot);
+  const wfp = stackFootprints(cfg.type, st.work, { x:tableX, z:tableZ });
+  let cur = workRoot, maxWorkZ = tableZ;
+  st.work.forEach((ax, i) => {
+    const d = dirOf(cfg.type, ax), fp = wfp[i];
+    maxWorkZ = Math.max(maxWorkZ, fp.z);
+    if (isVert(d)) cur = addKnee(cur, ax, d, fp.x * 0.9, fp.z, V, ctx);
+    else cur = addSlide(cur, ax, d, fp, -1, ctx);
+  });
+  if (st.work.length === 0) {
+    box(tableX, 0.3, tableZ, MAT.struct, 0, 0.15, 0, workRoot);
+    const g = new THREE.Group(); g.position.y = 0.3; workRoot.add(g); cur = g;
+  }
+  if (riser > 0.005) {                 // riser block so the vertical stroke fits the column (work raised)
+    box(tableX * 0.92, riser, tableZ * 0.92, MAT.struct, 0, riser/2, 0, cur);
+    const g = new THREE.Group(); g.position.y = riser; cur.add(g); cur = g;
+  }
+  const works = addWorkholding(cur, cfg, xs, span, ctx);
+
+  // ---- tool side
+  const gantry = st.frame === 'G';
+  const headW = Math.max(0.5, span + 0.45);
+  const colD = 0.75;
+  const vAx = V ? 'Z' : 'Y';
+  const saddleW = Math.max(headW, 0.6);
+  const railFX = STROKE.X + 2 * blockHalf(saddleW) + 0.16;                 // X rails on column/beam face
+  const colW = st.after.includes('X') ? Math.max(headW + 0.3, railFX + 0.1) : headW + 0.3;
+  const gSpan = Math.max(tableX + 0.4 + (xWork ? STROKE.X : 0), railFX - 0.7);
+  const toolRoot = new THREE.Group();
+  toolRoot.position.set(shift.x, BED_TOP, (V ? -1.0 : -1.3) + shift.z); root.add(toolRoot);
+  let tcur = toolRoot;
+  if (gantry) {
+    const fx = gSpan/2 + 0.2, fp = { x:gSpan + 0.8, z:colD };
+    for (const ax of st.before) {
+      const d = dirOf(cfg.type, ax);
+      tcur = addSlide(tcur, ax, d, fp, +1, ctx, isAlongX(d) ? {} : { feet:[-fx, fx], railOffsets:[-fx, fx] });
+    }
+  } else {
+    const tfp = stackFootprints(cfg.type, st.before, { x:colW + 0.1, z:colD + 0.1 });
+    st.before.forEach((ax, i) => { tcur = addSlide(tcur, ax, dirOf(cfg.type, ax), tfp[i], +1, ctx); });
+  }
+  // column / portal
+  let face, faceW;
+  if (!gantry) {
+    box(colW, colH, colD, MAT.column, 0, colH/2, 0, tcur);
+    face = new THREE.Group(); face.position.set(0, colH, colD/2); tcur.add(face); faceW = colW;
+  } else {
+    const lx = gSpan/2 + 0.2;
+    for (const s of [-1,1]) box(0.42, colH, colD, MAT.column, s*lx, colH/2, 0, tcur);
+    box(gSpan + 0.84, 0.5, 0.55, MAT.column, 0, colH + 0.25, 0, tcur);
+    face = new THREE.Group(); face.position.set(0, colH + 0.5, 0.275); tcur.add(face); faceW = gSpan + 0.84;
+  }
+  // axes stacked on the column / beam front face
+  let fcur = face, fW = faceW, faceDepth = 0, minColH = 0.9;
+  const hCV = 0.75;
+  st.after.forEach((ax, idx) => {
+    const d = dirOf(cfg.type, ax), onCol = fcur === face;
+    if (isVert(d)) {
+      const w = headW + 0.1, dC = 0.3, railLen = railVFor(ax, hCV);
+      for (const x of [-w*0.32, w*0.32]) box(RW, railLen, RH, railMat(ax), x, -0.05 - railLen/2, RH/2, fcur);
+      const g = new THREE.Group(); g.position.set(0, -0.05 - railLen/2 + hCV/2, RH); fcur.add(g);   // home = mid stroke
+      box(w, hCV, dC, tint(ax), 0, -hCV/2, dC/2, g);
+      label(ax, COLORS[ax], g, w/2 + 0.08, -hCV/2, dC);
+      ctx.movers.push({ ax, obj:g, base:g.position.clone(), dir:d.clone(), sign:1 });
+      const nf = new THREE.Group(); nf.position.set(0, 0, dC); g.add(nf);
+      if (onCol && !gantry) minColH = Math.max(minColH, railLen + 0.15);
+      fcur = nf; fW = w; faceDepth += dC + RH;
+    } else if (isAlongX(d)) {
+      const nextV = st.after[idx+1] && isVert(dirOf(cfg.type, st.after[idx+1]));
+      const hC = nextV ? Math.max(0.6, railVFor(st.after[idx+1], hCV) + 0.1) : 0.6;
+      const dC = 0.22, y0 = onCol ? -0.15 : 0;
+      for (const y of [-0.1, -(hC - 0.1)]) box(onCol ? railFX : fW*0.98, RW, RH, railMat(ax), 0, y0 + y, RH/2, fcur);
+      const g = new THREE.Group(); g.position.set(0, y0, RH); fcur.add(g);
+      box(saddleW, hC, dC, tint(ax), 0, -hC/2, dC/2, g);
+      label(ax, COLORS[ax], g, saddleW/2 + 0.08, -hC/2, dC);
+      ctx.movers.push({ ax, obj:g, base:g.position.clone(), dir:d.clone(), sign:1 });
+      const nf = new THREE.Group(); nf.position.set(0, 0, dC); g.add(nf);
+      if (onCol && !gantry) minColH = Math.max(minColH, hC + 0.3);
+      fcur = nf; fW = saddleW; faceDepth += dC + RH;
+    } else {                              // ram moving in the depth direction
+      const S = STROKE[ax], bw = headW, y0 = -0.35, ramL = Math.max(0.75, S * 0.6 + 0.4), brL = S + ramL * 0.5;
+      box(bw, 0.1, brL, MAT.struct, 0, y0 - 0.05, brL/2, fcur);
+      for (const x of [-bw*0.3, bw*0.3]) box(RW, RH, brL, railMat(ax), x, y0 + RH/2, brL/2, fcur);
+      const g = new THREE.Group(); g.position.set(0, y0 + RH, brL/2 - ramL/2 + 0.0); fcur.add(g);
+      box(bw*0.9, 0.3, ramL, tint(ax), 0, 0.15, ramL/2, g);
+      label(ax, COLORS[ax], g, bw*0.45 + 0.08, 0.15, ramL*0.6);
+      ctx.movers.push({ ax, obj:g, base:g.position.clone(), dir:d.clone(), sign:1 });
+      const nf = new THREE.Group(); nf.position.set(0, 0.3, ramL); g.add(nf);
+      fcur = nf; fW = bw*0.9; faceDepth += 10;   // a ram supplies its own overhang
+    }
+  });
+  // required spindle overhang in front of the column face so the table/saddle can travel the full depth stroke
+  const depthOnFace = st.after.includes(depthAx);
+  const needOver = (!gantry && V && !depthOnFace) ? maxWorkZ/2 + STROKE[depthAx]/2 + 0.1 : 0;
+  // spindle head + spindles + tools
+  let tip0 = null;
+  const [hOuter, hInner] = headAxes(cfg);
+  const rotHead = !!hInner;
+  if (V) {
+    const spZ = Math.max(0.4, needOver - faceDepth), hd = spZ + 0.2, hh = 0.5;
+    const y0 = fcur === face ? (gantry ? -0.05 : -0.3) : -0.05;
+    box(headW, hh, hd, MAT.head, 0, y0 - hh/2, hd/2, fcur);
+    xs.forEach((x, i) => {
+      const yb = y0 - hh;
+      let tip;
+      if (rotHead) tip = addHeadUnit(fcur, cfg.type, new THREE.Vector3(x, yb, spZ), new THREE.Quaternion(), hOuter, hInner, ctx, i === xs.length-1, i === 0);
+      else {
+        cyl(0.09, 0.3, MAT.spindle, 'y', x, yb - 0.15, spZ, fcur);
+        cyl(0.05, 0.06, MAT.dark, 'y', x, yb - 0.33, spZ, fcur);
+        addTool(fcur, 'y', x, yb - 0.36 - TOOL_L/2, spZ, TOOL_R, TOOL_L, i === 0);
+        tip = new THREE.Object3D(); tip.position.set(x, yb - 0.36 - TOOL_L, spZ); fcur.add(tip);
+      }
+      if (i === 0) tip0 = tip;
+    });
+  } else {
+    const hd = 0.35, hh = 0.5, y0 = fcur === face ? -0.3 : -0.12;
+    box(headW, hh, hd, MAT.head, 0, y0 - hh/2, hd/2, fcur);
+    const wq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI/2);
+    xs.forEach((x, i) => {
+      const yc = y0 - hh/2;
+      let tip;
+      if (rotHead) tip = addHeadUnit(fcur, cfg.type, new THREE.Vector3(x, yc, hd), wq, hOuter, hInner, ctx, i === xs.length-1, i === 0);
+      else {
+        cyl(0.09, 0.25, MAT.spindle, 'z', x, yc, hd + 0.125, fcur);
+        cyl(0.05, 0.06, MAT.dark, 'z', x, yc, hd + 0.28, fcur);
+        addTool(fcur, 'z', x, yc, hd + 0.31 + TOOL_L/2, TOOL_R, TOOL_L, i === 0);
+        tip = new THREE.Object3D(); tip.position.set(x, yc, hd + 0.31 + TOOL_L); fcur.add(tip);
+      }
+      if (i === 0) tip0 = tip;
+    });
+  }
+
+  // alignment: at Z = 0 (mid stroke) the tip sits Zstroke/2 + 10 mm from the work, so Z− end reaches the work
+  root.updateMatrixWorld(true);
+  const tipW = tip0.getWorldPosition(new THREE.Vector3());
+  const wb = new THREE.Box3().setFromObject(works[0]);
+  const c = wb.getCenter(new THREE.Vector3());
+  const clr = STROKE.Z / 2 + 0.01;
+  const target = V ? new THREE.Vector3(c.x, wb.max.y + clr, c.z) : new THREE.Vector3(c.x, c.y, wb.min.z - clr);
+  root.userData.tip0 = tip0; root.userData.work0 = works[0];
+  root.userData.dims = { pitch, tableX, tableZ, colW, gSpan, minColH };
+  return { root, ctx, delta: target.sub(tipW), minColH };
+}
+
+function addBed(root) {
+  root.updateMatrixWorld(true);
+  const bb = new THREE.Box3();
+  root.traverse(o => { if (o.isMesh) bb.expandByObject(o); });
+  const w = bb.max.x - bb.min.x + 0.2, d = bb.max.z - bb.min.z + 0.2;
+  box(w, BED_TOP, d, MAT.bed, (bb.max.x + bb.min.x)/2, BED_TOP/2, (bb.max.z + bb.min.z)/2, root);
+  box(w + 0.04, 0.06, d + 0.04, MAT.dark, (bb.max.x + bb.min.x)/2, 0.03, (bb.max.z + bb.min.z)/2, root);
+  root.userData.bed = { w, d };
+}
+
+// ---------------------------------------------------------------- three.js scene
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+view.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2b3138);
+scene.fog = new THREE.Fog(0x2b3138, 14, 30);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI * 0.495;
+
+scene.add(new THREE.HemisphereLight(0xdfe9f5, 0x3a3a3a, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(4, 7, 5); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-5, right:5, top:5, bottom:-5, near:0.5, far:25 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+scene.add(sun); scene.add(sun.target);
+const fill = new THREE.DirectionalLight(0xbcd4ff, 0.6); fill.position.set(-5, 3, -3); scene.add(fill);
+
+let grid = new THREE.GridHelper(20, 20, 0x5f6974, 0x47505a); grid.userData.size = 20; grid.position.y = 0.002; scene.add(grid);   // 1 m cells
+let gridMinor = new THREE.GridHelper(6, 60, 0x353c44, 0x353c44); gridMinor.position.y = 0.001; scene.add(gridMinor);              // 100 mm cells
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity:0.3 }));
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+
+// axis triad inset
+const triScene = new THREE.Scene();
+const triCam = new THREE.PerspectiveCamera(40, 1, 0.1, 20);
+let triGroup = null;
+function buildTriad(type) {
+  if (triGroup) triScene.remove(triGroup);
+  triGroup = new THREE.Group();
+  for (const ax of ['X','Y','Z']) {
+    const d = dirOf(type, ax), m = new THREE.MeshBasicMaterial({ color:COLORS[ax] });
+    const g = new THREE.Group();
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 12), m); s.position.y = 0.5; g.add(s);
+    const h = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.32, 16), m); h.position.y = 1.15; g.add(h);
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), d);
+    triGroup.add(g);
+    const sp = new THREE.Sprite(labelMat(ax + '+', COLORS[ax])); sp.scale.set(0.6,0.6,0.6);
+    sp.position.copy(d).multiplyScalar(1.65); triGroup.add(sp);
+  }
+  triGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), new THREE.MeshBasicMaterial({ color:0xdddddd })));
+  triScene.add(triGroup);
+}
+
+// ---------------------------------------------------------------- rebuild
+let model = null, movers = [], rotaries = [];
+function disposeTree(o) { o.traverse(c => { if (c.geometry) c.geometry.dispose(); }); }
+
+function currentCfg() {
+  return { type:state.type, axes:state.axes, sp:state.sp, rot:state.rot, head:state.head, pitch:state.pitch/1000, stack:deriveStack(state.type, state.custom) };
+}
+
+function rebuild(fit = false) {
+  applyStrokes();
+  const cfg = currentCfg();
+  if (model) { scene.remove(model); disposeTree(model); }
+  const H0 = cfg.type === 'V' ? 1.6 : 1.5;
+  let r = build(cfg, H0, { x:0, z:0 });
+  let H1 = H0 + r.delta.y;
+  const riser = Math.max(0, r.minColH - H1);      // column cannot be shorter than its rails → raise the work instead
+  H1 += riser;
+  const shift = { x:r.delta.x, z:r.delta.z };
+  disposeTree(r.root);
+  r = build(cfg, H1, shift, riser);
+  addBed(r.root);
+  model = r.root; movers = r.ctx.movers; rotaries = r.ctx.rotaries;
+  scene.add(model);
+  buildSliders(cfg);
+  applyValues();
+  updateSummary(cfg);
+  updateStackView(cfg);
+  if (fit) fitCamera();
+}
+
+function fitCamera() {
+  const bb = new THREE.Box3().setFromObject(model);
+  const sph = bb.getBoundingSphere(new THREE.Sphere());
+  controls.target.copy(sph.center);
+  // angle-plate pallet faces the column, so look from the side/above into the gap between spindles and plate
+  const dir = (workKind(currentCfg()) === 'HAP' ? new THREE.Vector3(1.5, 1.15, 0.25) : new THREE.Vector3(1.15, 0.75, 1.6)).normalize();
+  // start from the bounding sphere (using the narrower of vertical/horizontal FOV), then tighten so the
+  // 8 box corners fill ~85% of the view; leaves room for the summary card at the top
+  const vf = THREE.MathUtils.degToRad(camera.fov/2), hf = Math.atan(Math.tan(vf) * camera.aspect);
+  let dist = sph.radius / Math.sin(Math.min(vf, hf));
+  const corners = [];
+  for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) corners.push(new THREE.Vector3(x,y,z));
+  for (let it = 0; it < 6; it++) {
+    camera.position.copy(sph.center).addScaledVector(dir, dist); camera.lookAt(sph.center); camera.updateMatrixWorld(true);
+    let ext = 0;
+    for (const c of corners) { const p = c.clone().project(camera); ext = Math.max(ext, Math.abs(p.x), Math.abs(p.y) * 1.12); }
+    dist *= 0.35 + 0.65 * (ext / 0.9);
+  }
+  camera.position.copy(sph.center).addScaledVector(dir, dist);
+  camera.far = Math.max(100, dist * 10); camera.updateProjectionMatrix();
+  controls.target.copy(sph.center); controls.maxDistance = dist * 4;
+  // scale fog, shadow frustum and sun with machine size
+  scene.fog.near = dist * 1.6; scene.fog.far = dist * 4.5;
+  const r = sph.radius + 0.5;
+  Object.assign(sun.shadow.camera, { left:-r, right:r, top:r, bottom:-r, near:0.1, far:r * 4 + 10 });
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.position.copy(sph.center).add(new THREE.Vector3(4, 7, 5).normalize().multiplyScalar(r * 2 + 3));
+  sun.target.position.copy(sph.center); sun.target.updateMatrixWorld();
+  const gs = Math.max(20, Math.ceil(r * 5 / 2) * 2);
+  if (grid.userData.size !== gs) { scene.remove(grid); grid.geometry.dispose(); grid = new THREE.GridHelper(gs, gs, 0x5f6974, 0x47505a); grid.position.y = 0.002; grid.userData.size = gs; scene.add(grid); }
+  { const ms = Math.min(gs, Math.max(4, Math.ceil(sph.radius * 2.4))); scene.remove(gridMinor); gridMinor.geometry.dispose();
+    gridMinor = new THREE.GridHelper(ms, ms * 10, 0x353c44, 0x353c44); gridMinor.position.set(Math.round(sph.center.x), 0.001, Math.round(sph.center.z)); scene.add(gridMinor); }
+  controls.update();
+}
+
+// close-up framing on tool + work (URL ?focus=tool)
+function focusTool() {
+  model.updateMatrixWorld(true);
+  const a = model.userData.tip0.getWorldPosition(new THREE.Vector3());
+  const b = new THREE.Box3().setFromObject(model.userData.work0).getCenter(new THREE.Vector3());
+  const c = a.clone().add(b).multiplyScalar(0.5); c.y += 0.3;
+  controls.target.copy(c);
+  camera.position.copy(c).addScaledVector((state.type === "H" ? (workKind(currentCfg()) === 'HAP' ? new THREE.Vector3(1.4, 0.9, -0.2) : new THREE.Vector3(1.6, 0.6, 0.6)) : new THREE.Vector3(1.1, 0.4, 1.5)).normalize(), 3.2);
+  controls.update();
+}
+
+function applyValues() {
+  for (const m of movers) m.obj.position.copy(m.base).addScaledVector(m.dir, m.sign * state.values[m.ax]);
+  for (const r of rotaries) r.obj.quaternion.setFromAxisAngle(r.axis, THREE.MathUtils.degToRad(state.values[r.ax]));
+}
+
+// ---------------------------------------------------------------- UI
+const $ = id => document.getElementById(id);
+let sliderDefs = [];
+function buildSliders(cfg) {
+  const rots = rotDefs(cfg);
+  const lin = ['X','Y','Z'].filter(a => movers.some(m => m.ax === a));
+  const missing = ['X','Y','Z'].filter(a => !lin.includes(a));
+  sliderDefs = [
+    ...lin.map(ax => ({ ax, min:LIN_RANGE[ax][0], max:LIN_RANGE[ax][1], step:0.001, rot:false })),
+    ...rots.map(r => ({ ax:r.ax, min:r.range[0], max:r.range[1], step:1, rot:true })),
+  ];
+  for (const k of Object.keys(state.values)) if (!sliderDefs.some(s => s.ax === k)) state.values[k] = 0;
+  for (const s of sliderDefs) state.values[s.ax] = Math.min(s.max, Math.max(s.min, state.values[s.ax]));
+  const box_ = $('sliders'); box_.innerHTML = '';
+  for (const s of sliderDefs) {
+    const row = document.createElement('div'); row.className = 'sl';
+    const col = '#' + new THREE.Color(COLORS[s.ax]).getHexString();
+    row.innerHTML = `<span class="chip" style="background:${col}">${s.ax}</span>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${state.values[s.ax]}" data-ax="${s.ax}">
+      <span class="val" id="val_${s.ax}"></span>`;
+    box_.appendChild(row);
+    row.querySelector('input').addEventListener('input', e => {
+      state.values[s.ax] = parseFloat(e.target.value); applyValues(); updateSliderLabels(false);
+    });
+  }
+  if (missing.length) {
+    const h = document.createElement('div'); h.className = 'hint warn';
+    h.textContent = `未割当の軸: ${missing.join(', ')}`; box_.appendChild(h);
+  }
+  updateSliderLabels(false);
+}
+function updateSliderLabels(syncInputs) {
+  for (const s of sliderDefs) {
+    const v = state.values[s.ax];
+    const el = $('val_' + s.ax);
+    if (el) el.textContent = s.rot ? `${v.toFixed(0)}°` : `${(v*1000) >= 0 ? '+' : ''}${(v*1000).toFixed(0)} mm`;
+    if (syncInputs) { const inp = document.querySelector(`#sliders input[data-ax="${s.ax}"]`); if (inp) inp.value = v; }
+  }
+}
+
+function sideOfAxis(st, ax) { return st.work.includes(ax) ? 'work' : 'tool'; }
+
+function updateSummary(cfg) {
+  const st = cfg.stack, V = cfg.type === 'V';
+  const rd = rotDefs(cfg), rots = rd.map(r => r.ax);
+  const wr = rd.filter(r => r.side === 'work').map(r => r.ax), tr = rd.filter(r => r.side === 'tool').map(r => r.ax);
+  const toolAxes = st.tool.filter(a => a !== 'COL');
+  const workStr = (st.work.length ? st.work.join('→') : 'なし（テーブル固定）') + (wr.length ? ` ＋回転 ${wr.join('/')}` : '');
+  const toolStr = (toolAxes.length ? toolAxes.join('→') : 'なし') + (tr.length ? ` ＋主軸頭 ${tr.join('→')}` : '');
+  const strokes = `X${state.stroke.X}×Y${state.stroke.Y}×Z${state.stroke.Z}mm`;
+  const main = `${V ? '立形' : '横形'}${cfg.axes}軸 ${SP_NAME(cfg.sp)} ${strokes} / ワーク側: ${workStr}, 工具側: ${toolStr}`;
+  let struct;
+  if (st.frame === 'G') struct = st.before.length ? `門形・ガントリー移動（${st.before.join('')}）` : '門形・ダブルコラム固定';
+  else struct = st.before.length ? `C形・コラム移動（${st.before.join('')}）` : 'C形・コラム固定';
+  const onCol = st.after.length ? `コラム上: ${st.after.join('→')}` : '主軸頭はコラムに固定';
+  const preset = state.presetIdx >= 0 ? PRESETS[cfg.type][state.presetIdx].name : 'カスタム';
+  $('sumMain').textContent = main;
+  const dims = model ? model.userData.dims : null, bed = model ? model.userData.bed : null;
+  let hold = '';
+  if (workKind(cfg) === 'HAP') {
+    const px = state.stroke.X, py = state.stroke.Y, tw = Math.round(((dims ? dims.pitch : 0) * (cfg.sp - 1)) * 1000 + px);
+    hold = ` ／ 垂直パレット（イケール型） ${cfg.sp > 1 ? `各主軸 ${px}×${py}mm・全幅 ${tw}×${py}mm` : `${px}×${py}mm`}`;
+  }
+  const scale = `工具 φ50×L120${cfg.sp > 1 && dims ? ` ／ 主軸間ピッチ ${Math.round(dims.pitch*1000)}mm` : ''}${bed ? ` ／ ベッド約 ${Math.round(bed.w*1000)}×${Math.round(bed.d*1000)}mm` : ''}`;
+  $('sumDetail').textContent = `${scale} ／ 構造: ${struct}${hold} ／ ${onCol} ／ 回転軸: ${rots.length ? rotHint(cfg).replace(/^\d軸[^:]*: /,'') : 'なし'} ／ ${preset}`;
+  document.title = `${main} - マシニングセンタ ビルダー`;
+}
+
+function updateStackView(cfg) {
+  const st = cfg.stack, V = cfg.type === 'V';
+  const chip = ax => `<span class="chip" style="background:#${new THREE.Color(COLORS[ax]).getHexString()}">${ax}</span>`;
+  const rd = rotDefs(cfg);
+  const rots = rd.filter(r => r.side === 'work').map(r => r.ax);
+  const [hO, hI] = headAxes(cfg);
+  const w = ['<div class="fixed">ベッド</div>'];
+  st.work.forEach(a => w.push(`<div>${chip(a)} ${isVert(dirOf(cfg.type,a)) ? 'ニー（上下）' : (isAlongX(dirOf(cfg.type,a)) ? 'テーブル' : 'サドル')}</div>`));
+  if (!st.work.length) w.push('<div class="fixed">固定テーブル</div>');
+  if (rots.length) w.push(`<div>${rots.map(chip).join(' ')} 回転軸</div>`);
+  if (workKind(cfg) === 'HAP') w.push('<div class="fixed">垂直パレット（イケール型）</div>');
+  w.push(`<div class="end">ワーク ×${cfg.sp}</div>`);
+  const t = ['<div class="fixed">ベッド</div>'];
+  st.tool.forEach(a => {
+    if (a === 'COL') t.push(`<div class="fixed">${st.frame === 'G' ? '門形フレーム' : 'コラム'}</div>`);
+    else {
+      const d = dirOf(cfg.type, a), below = st.before.includes(a);
+      const nm = below ? (st.frame === 'G' ? 'ガントリー脚' : 'コラムベース') : (isVert(d) ? '主軸頭（上下）' : (isAlongX(d) ? 'サドル' : 'ラム'));
+      t.push(`<div>${chip(a)} ${nm}</div>`);
+    }
+  });
+  if (hI) {
+    t.push(hO ? `<div>${chip(hO)} 旋回ハウジング</div>` : '<div class="fixed">固定アダプタ</div>');
+    t.push(`<div>${chip(hI)} 傾斜フォーク</div>`);
+  }
+  t.push(`<div class="end">主軸 ×${cfg.sp}${hI && cfg.sp > 1 ? '（各ヘッド独立）' : ''}</div>`);
+  $('stkWork').innerHTML = w.join(''); $('stkTool').innerHTML = t.join('');
+  $('notes').innerHTML = st.notes.map(s => `<span class="warn">※ ${s}</span>`).join('<br>');
+}
+
+function syncStrokeUI() {
+  for (const a of ['X','Y','Z']) { const el = $('st' + a); if (document.activeElement !== el) el.value = state.stroke[a]; }
+  if (document.activeElement !== $('pitch')) $('pitch').value = state.pitch;
+  const mp = Math.round(minPitch(state) * 1000);
+  $('strokeHint').innerHTML = `工具 φ50 を基準にした実寸スケール（グリッド 1 m／100 mm）。Xストロークは主軸1本あたりの移動量で、機械幅 ≈ (主軸数−1)×ピッチ＋Xストローク＋余裕。`
+    + (state.sp < 2 ? '<br>主軸1本のためピッチは未使用' : `<br>この構成の最小ピッチ ${mp} mm${state.pitch < mp ? `（入力 ${state.pitch} mm → <span class="warn">${mp} mm に拡大</span>）` : ''}`);
+}
+function syncControls() {
+  syncStrokeUI();
+  document.querySelectorAll('.seg').forEach(seg => {
+    const key = seg.dataset.key;
+    seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(state[key]) === b.dataset.v));
+  });
+  $('typeHint').textContent = state.type === 'V' ? '主軸は下向き（−Z方向）' : '主軸は水平（ワーク方向、Z軸）';
+  if (!HEAD_OPTS[state.type].some(o => o.v === state.head)) state.head = HEAD_OPTS[state.type][0].v;
+  $('rotHint').textContent = rotHint(state);
+  $('rotCfg').style.display = state.axes === 5 ? '' : 'none';
+  $('rotSel').value = state.rot;
+  $('headRow').style.display = state.rot === 'head' ? '' : 'none';
+  $('headSel').innerHTML = HEAD_OPTS[state.type].map(o => `<option value="${o.v}">${o.name}</option>`).join('');
+  $('headSel').value = state.head;
+  // presets
+  const ps = $('preset');
+  ps.innerHTML = PRESETS[state.type].map((p,i) => `<option value="${i}">${p.name}</option>`).join('') + '<option value="-1">カスタム（下で手動設定）</option>';
+  ps.value = String(state.presetIdx);
+  // axis rows
+  const c = state.custom;
+  $('axrows').innerHTML = ['X','Y','Z'].map(ax => `
+    <div class="axrow">
+      <span class="chip" style="background:#${new THREE.Color(COLORS[ax]).getHexString()}">${ax}</span>
+      <select data-ax="${ax}" class="side"><option value="work">ワーク側（テーブル側）</option><option value="tool">工具側（主軸側）</option></select>
+      <select data-ax="${ax}" class="ord">${[1,2,3].map(i => `<option value="${i}">${i}番目</option>`).join('')}</select>
+    </div>`).join('');
+  document.querySelectorAll('#axrows select.side').forEach(s => s.value = c.side[s.dataset.ax]);
+  document.querySelectorAll('#axrows select.ord').forEach(s => s.value = String(c.order[s.dataset.ax]));
+  // frame
+  const fr = $('frame');
+  fr.querySelector('option[value="G"]').disabled = state.type === 'H';
+  fr.value = state.type === 'H' ? 'C' : c.frame;
+  // column position
+  const nTool = ['X','Y','Z'].filter(a => c.side[a] === 'tool').length;
+  const cb = $('colBelow'); const G = fr.value === 'G';
+  let opts = '';
+  for (let k = 0; k <= nTool; k++) {
+    opts += `<option value="${k}">${k === 0 ? (G ? '門形固定（全工具側軸がフレーム上）' : 'コラム固定（全工具側軸がコラム上）')
+      : `下から${k}軸がベッド上で${G ? 'ガントリー' : 'コラム'}を移動`}</option>`;
+  }
+  cb.innerHTML = opts; c.colBelow = Math.min(c.colBelow, nTool); cb.value = String(c.colBelow);
+}
+
+function applyPreset(idx) {
+  state.presetIdx = idx;
+  if (idx >= 0) state.custom = presetToCustom(PRESETS[state.type][idx]);
+}
+
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const key = seg.dataset.key; const v = key === 'type' ? b.dataset.v : parseInt(b.dataset.v, 10);
+  if (state[key] === v) return;
+  state[key] = v;
+  if (key === 'type') applyPreset(0);
+  syncControls(); rebuild(key !== 'axes');
+}));
+$('preset').addEventListener('change', e => {
+  const idx = parseInt(e.target.value, 10);
+  if (idx >= 0) applyPreset(idx); else state.presetIdx = -1;
+  syncControls(); rebuild(true);
+});
+$('axrows').addEventListener('change', e => {
+  const s = e.target; const ax = s.dataset.ax; if (!ax) return;
+  if (s.classList.contains('side')) state.custom.side[ax] = s.value; else state.custom.order[ax] = parseInt(s.value, 10);
+  state.presetIdx = -1; syncControls(); rebuild(false);
+});
+$('frame').addEventListener('change', e => { state.custom.frame = e.target.value; state.presetIdx = -1; syncControls(); rebuild(true); });
+$('colBelow').addEventListener('change', e => { state.custom.colBelow = parseInt(e.target.value, 10); state.presetIdx = -1; syncControls(); rebuild(false); });
+$('rotSel').addEventListener('change', e => { state.rot = e.target.value; syncControls(); rebuild(false); });
+$('headSel').addEventListener('change', e => { state.head = e.target.value; syncControls(); rebuild(false); });
+for (const a of ['X','Y','Z']) {
+  const el = $('st' + a);
+  el.addEventListener('input', () => { const v = parseFloat(el.value); if (isFinite(v) && v >= STROKE_MIN && v <= STROKE_MAX) { state.stroke[a] = Math.round(v); rebuild(false); } });
+  el.addEventListener('change', () => { const v = parseFloat(el.value); state.stroke[a] = Math.min(STROKE_MAX, Math.max(STROKE_MIN, Math.round(isFinite(v) ? v : state.stroke[a]))); el.value = state.stroke[a]; rebuild(true); });
+}
+$('pitch').addEventListener('input', () => { const v = parseFloat($('pitch').value); if (isFinite(v) && v >= 150 && v <= 3000) { state.pitch = Math.round(v); syncStrokeUI(); rebuild(false); } });
+$('pitch').addEventListener('change', () => { const v = parseFloat($('pitch').value); state.pitch = Math.min(3000, Math.max(150, Math.round(isFinite(v) ? v : state.pitch))); $('pitch').value = state.pitch; syncStrokeUI(); rebuild(true); });
+$('anim').addEventListener('change', e => { state.animate = e.target.checked; animT0 = performance.now(); });
+$('zero').addEventListener('click', () => { for (const k in state.values) state.values[k] = 0; applyValues(); updateSliderLabels(true); });
+$('resetView').addEventListener('click', fitCamera);
+
+// ---------------------------------------------------------------- loop
+let animT0 = performance.now();
+const ANIM = { X:[0.55,0], Y:[0.75,1.3], Z:[1.1,2.1], A:[0.45,0.7], B:[0.35,1.9], C:[0.6,0.2] };
+function animateAxes(now) {
+  const t = (now - animT0) / 1000;
+  for (const s of sliderDefs) {
+    const [w, ph] = ANIM[s.ax];
+    const mid = s.rot ? 0 : (s.min + s.max)/2;
+    const amp = s.rot ? Math.min(s.max, 120) * 0.9 : (s.max - s.min)/2 * 0.995;
+    state.values[s.ax] = mid + amp * Math.sin(t * w * 2 + ph);
+  }
+  applyValues(); updateSliderLabels(true);
+}
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / Math.max(h,1); camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+
+function render(now) {
+  if (state.animate) animateAxes(now);
+  controls.update();
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h);
+  renderer.render(scene, camera);
+  // inset triad
+  const s = 130, m = 10;
+  renderer.autoClear = false;
+  renderer.setScissorTest(true); renderer.setScissor(m, m, s, s); renderer.setViewport(m, m, s, s);
+  const prev = renderer.getClearColor(new THREE.Color()).getHex();
+  renderer.setClearColor(0x20252b, 1); renderer.clear(true, true, false); renderer.setClearColor(prev, 1);
+  triCam.position.copy(camera.position).sub(controls.target).setLength(5.2);
+  triCam.lookAt(0, 0, 0);
+  renderer.render(triScene, triCam);
+  renderer.setScissorTest(false); renderer.autoClear = true;
+  requestAnimationFrame(render);
+}
+
+// ---------------------------------------------------------------- init (URL params allow deep links / tests)
+const q = new URLSearchParams(location.search);
+if (q.get('type') === 'H' || q.get('type') === 'V') state.type = q.get('type');
+if (['3','4','5'].includes(q.get('axes'))) state.axes = +q.get('axes');
+{ const n = parseInt(q.get('sp') || '', 10); if (n >= 1 && n <= 10) state.sp = n; }
+for (const a of ['X','Y','Z']) { const v = parseFloat(q.get(a.toLowerCase())); if (isFinite(v)) state.stroke[a] = Math.min(STROKE_MAX, Math.max(STROKE_MIN, Math.round(v))); }
+{ const v = parseFloat(q.get('pitch')); if (isFinite(v)) state.pitch = Math.min(3000, Math.max(150, Math.round(v))); }
+applyPreset(Math.min(Math.max(parseInt(q.get('preset') || '0', 10) || 0, 0), PRESETS[state.type].length - 1));
+if (['table','head','mixed'].includes(q.get('rot'))) state.rot = q.get('rot');
+if (q.get('head')) state.head = q.get('head').toUpperCase();
+if (!HEAD_OPTS[state.type].some(o => o.v === state.head)) state.head = HEAD_OPTS[state.type][0].v;
+if (q.get('anim') === '1') { state.animate = true; $('anim').checked = true; }
+for (const ax of ['X','Y','Z','A','B','C']) if (q.has(ax)) state.values[ax] = parseFloat(q.get(ax)) || 0;
+
+buildTriad(state.type);
+syncControls();
+resize();
+rebuild(true);
+// rebuild triad on type change
+document.querySelector('.seg[data-key="type"]').addEventListener('click', () => buildTriad(state.type));
+requestAnimationFrame(render);
+if (q.get('focus') === 'tool') focusTool();
+window.__mc = { state, rebuild, fitCamera, focusTool, camera, controls, get model() { return model; }, get rotaries() { return rotaries; }, ready:true };
+</script>
+<script>
+  window.addEventListener('error', e => { const el = document.getElementById('err'); if (el) el.textContent += (e.message || e) + '\n'; });
+</script>
+</body>
+</html>
